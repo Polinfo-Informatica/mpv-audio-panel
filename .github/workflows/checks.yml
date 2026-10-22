@@ -1,0 +1,27 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-install:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified check tools
+        shell: pwsh
+        run: ./scripts/Get-CheckTools.ps1
+      - name: Lint and test installation
+        shell: pwsh
+        run: ./scripts/Invoke-Checks.ps1
+      - name: Check Python syntax
+        shell: pwsh
+        run: python -m py_compile tests/runtime.py
+      - name: Test Windows PowerShell compatibility
+        shell: powershell
+        run: ./tests/Installer.Tests.ps1
