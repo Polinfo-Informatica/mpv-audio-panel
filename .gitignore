@@ -1,0 +1,6 @@
+.tools/
+test-output/
+*-backups/
+*.log
+*.zip
+__pycache__/

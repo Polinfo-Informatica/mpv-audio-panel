@@ -1,0 +1,9 @@
+MPV Audio Panel is an independent configuration and script package for mpv.
+
+The monochrome logo path in config/scripts/audio-panel.lua is adapted from
+mpv-player/mpv, etc/mpv.svg:
+https://github.com/mpv-player/mpv/blob/master/etc/mpv.svg
+The upstream project distributes this artwork under GPL-2.0-or-later.
+
+The mpv name and logo identify the upstream player. This package is not an
+official mpv release and does not include the mpv executable.
