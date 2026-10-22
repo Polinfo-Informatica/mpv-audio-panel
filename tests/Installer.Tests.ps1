@@ -113,6 +113,19 @@ foreach ($choice in @('1', '2')) {
 Assert-Condition ($menuChoices.Count -eq 0) 'Explicit mode unexpectedly prompted'
 Write-Output 'Unified menu checks passed: all modes, restore, invalid input, cancel and explicit mode.'
 
+# Run the actual CMD launcher and Windows PowerShell backend, not only the script API.
+$launcherTarget = Join-Path $sandbox 'launcher'
+$launcherCommand = 'call "{0}" -Mode Both -ConfigDirectory "{1}" < NUL' -f (Join-Path $project 'Install.cmd'), $launcherTarget
+$launcherOutput = (& $env:ComSpec /d /c $launcherCommand) -join "`n"
+Assert-Condition ($LASTEXITCODE -eq 0) 'CMD launcher installation failed'
+Assert-Condition ($launcherOutput.Contains('MPV Audio Panel setup')) 'Launcher startup is not visible'
+Assert-Condition ($launcherOutput.Contains('Installation complete: Both')) 'Launcher did not complete installation'
+Assert-Condition (Test-Path (Join-Path $launcherTarget 'scripts/audio-panel.lua')) 'Launcher lost audio'
+Assert-Condition (Test-Path (Join-Path $launcherTarget 'scripts/video-safety.lua')) 'Launcher lost video'
+& (Join-Path $project 'Restore.ps1') -ConfigDirectory $launcherTarget | Out-Null
+Assert-Condition (-not (Test-Path (Join-Path $launcherTarget 'mpv.conf'))) 'Launcher install did not restore'
+Write-Output 'CMD launcher checks passed: visible startup, Windows PowerShell installation and restore.'
+
 # Only this test-owned temporary directory is removed.
 if ([IO.Path]::GetFullPath($sandbox).StartsWith([IO.Path]::GetFullPath($testRoot) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
     Remove-Item -LiteralPath $sandbox -Recurse -Force

@@ -48,7 +48,7 @@ Other operating systems are not supported or tested by this package. Manual adap
 
 1. Install mpv separately and close its running windows.
 2. Download this repository with **Code → Download ZIP** and extract it.
-3. Double-click **`Install.cmd`** and choose **1** for Audio, **2** for Video or **3** for Both. Use **4** to restore the latest backup or **0** to exit without changes. For unattended use, open PowerShell in the extracted folder:
+3. Double-click **`Install.cmd`** as your normal Windows user (administrator privileges are not required for the default per-user configuration) and choose **1** for Audio, **2** for Video or **3** for Both. Use **4** to restore the latest backup or **0** to exit without changes. For unattended use, open PowerShell in the extracted folder:
 
    ```powershell
    .\Install.ps1 -Mode Audio
@@ -140,6 +140,8 @@ Peak computation stays automatic so mpv can check shader support. After a startu
 **HDR10+ and Dolby Vision metadata processing is not native HDR10+/Dolby Vision passthrough.** A compatible renderer can use metadata to convert to SDR or HDR10 without requiring those display certifications. mpv does not expose a complete certification of GPU, cable, OS, driver and monitor support; missing evidence keeps the configuration on its compatibility path. OS HDR remains under system control.
 
 See [Playback profiles](docs/profiles.md) for exact gates, precedence, performance behavior and limits.
+
+The launcher prints a startup message before PowerShell starts, keeps errors visible until a key is pressed, and sets the execution policy only for its child PowerShell process. It does not change the machine or user execution policy.
 
 ## Restore or uninstall
 
