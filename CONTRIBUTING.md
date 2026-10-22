@@ -37,11 +37,14 @@ With Python 3.9+ and a recent mpv executable:
 
 ```powershell
 python tests/runtime.py --mpv 'D:\Apps\mpv\mpv.exe'
+python tests/playlist.py --mpv 'D:\Apps\mpv\mpv.exe'
 ```
 
 If mpv is on PATH, omit `--mpv`. No Python packages are required. FFmpeg on PATH adds synthetic PQ and HLG fixtures and requires its `libx264` encoder. Without FFmpeg those cases are explicitly skipped. Fixtures and watch-later data stay in an isolated test directory and are removed after the run.
 
 The suite checks Audio, Video and Both modes, including window mode, controller selection, per-file resume/save policy and the absence of a fullscreen request between ordinary and ambiguous-extension audio. It also exercises synthetic output capability, metadata and sustained-drop decisions. It also checks HDR peak profile selection when fixtures are available. Outputs are null, so physical display behavior is outside the test's scope.
+
+The playlist regression builds a folder containing sibling audio, a cover image, a video and a nested folder with more audio/images. It verifies that automatic music playlists contain only sibling audio and that external cover art keeps the audio interface active. It needs no FFmpeg or external Python packages.
 
 Before submitting UI changes, manually inspect narrow and default window sizes, muted/unmuted icons, volume and timing alignment, long playlist titles, scrolling, seeking, native dragging and Windows Snap. Before changing video profiles, verify real SDR/HDR media and audio/video transitions.
 
