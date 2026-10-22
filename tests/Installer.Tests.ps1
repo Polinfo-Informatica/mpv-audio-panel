@@ -53,6 +53,38 @@ try { & (Join-Path $package 'Install.ps1') -ConfigDirectory (Join-Path $sandbox 
 Assert-Condition $rejected 'Corrupt package was accepted'
 Assert-Condition (-not (Test-Path (Join-Path $sandbox 'rejected'))) 'Rejected package changed the destination'
 Write-Output 'Installer checks passed: fresh install, exact restore, updates, unrelated files, corrupt package and backup rejection.'
+foreach ($mode in @('Audio', 'Video', 'Both')) {
+    $target = Join-Path $sandbox $mode
+    $null = New-Item -ItemType Directory -Path $target
+    $sentinel = "# Existing preferences`nvolume=41`n[external-profile]`nsub-scale=1.2`n"
+    [IO.File]::WriteAllText((Join-Path $target 'mpv.conf'), $sentinel)
+    & (Join-Path $project 'Install.ps1') -ConfigDirectory $target -Mode $mode | Out-Null
+    $installed = Get-Content (Join-Path $target 'mpv.conf') -Raw
+    Assert-Condition ($installed.Contains($sentinel.TrimEnd())) "$mode changed unrelated configuration"
+    Assert-Condition ((Test-Path (Join-Path $target 'scripts/audio-panel.lua')) -eq ($mode -ne 'Video')) "$mode audio isolation failed"
+    Assert-Condition ((Test-Path (Join-Path $target 'scripts/video-safety.lua')) -eq ($mode -ne 'Audio')) "$mode video isolation failed"
+    Assert-Condition ($installed.Contains('include=~~/mpv-audio-panel/audio.conf') -eq ($mode -ne 'Video')) "$mode audio include failed"
+    Assert-Condition ($installed.Contains('include=~~/mpv-audio-panel/video.conf') -eq ($mode -ne 'Audio')) "$mode video include failed"
+    & (Join-Path $project 'Install.ps1') -ConfigDirectory $target -Mode Video | Out-Null
+    & (Join-Path $project 'Install.ps1') -ConfigDirectory $target -Mode Audio | Out-Null
+    Assert-Condition (-not (Test-Path (Join-Path $target 'scripts/video-safety.lua'))) 'Mode switch retained video processing'
+    Assert-Condition (([regex]::Matches((Get-Content (Join-Path $target 'mpv.conf') -Raw), '# BEGIN MPV AUDIO PANEL')).Count -eq 1) 'Mode switch duplicated the loader'
+    & (Join-Path $project 'Restore.ps1') -ConfigDirectory $target | Out-Null
+    Assert-Condition (Test-Path (Join-Path $target 'scripts/video-safety.lua')) 'Mode-switch rollback lost video component'
+    Assert-Condition (-not (Test-Path (Join-Path $target 'scripts/audio-panel.lua'))) 'Mode-switch rollback retained audio component'
+}
+# Version 1 backups from the original two-file package remain restorable.
+$legacy = Join-Path $sandbox 'legacy'
+& (Join-Path $project 'Install.ps1') -ConfigDirectory $legacy | Out-Null
+$legacyBackup = Get-ChildItem (Join-Path $legacy 'mpv-audio-panel-backups') -Directory | Select-Object -First 1
+$legacyManifest = Join-Path $legacyBackup.FullName 'manifest.json'
+$record = Get-Content $legacyManifest -Raw | ConvertFrom-Json
+$record.Version = 1
+$record.Files = @($record.Files | Where-Object {$_.Path -in @('mpv.conf', 'scripts/audio-panel.lua')})
+$record | ConvertTo-Json -Depth 4 | Set-Content $legacyManifest -Encoding UTF8
+& (Join-Path $project 'Restore.ps1') -ConfigDirectory $legacy | Out-Null
+Assert-Condition (-not (Test-Path (Join-Path $legacy 'mpv.conf'))) 'Legacy backup restore failed'
+Write-Output 'Component checks passed: Audio, Video, Both, mode switching, config preservation and legacy backups.'
 # Only this test-owned temporary directory is removed.
 if ([IO.Path]::GetFullPath($sandbox).StartsWith([IO.Path]::GetFullPath($testRoot) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
     Remove-Item -LiteralPath $sandbox -Recurse -Force
