@@ -85,6 +85,40 @@ $record | ConvertTo-Json -Depth 4 | Set-Content $legacyManifest -Encoding UTF8
 & (Join-Path $project 'Restore.ps1') -ConfigDirectory $legacy | Out-Null
 Assert-Condition (-not (Test-Path (Join-Path $legacy 'mpv.conf'))) 'Legacy backup restore failed'
 Write-Output 'Component checks passed: Audio, Video, Both, mode switching, config preservation and legacy backups.'
+
+# Exercise the unified menu against an isolated destination.
+$menuTarget = Join-Path $sandbox 'menu'
+$menuChoices = [Collections.Generic.Queue[string]]::new()
+function Read-Host {
+    param([string]$Prompt)
+    if (-not $Prompt) { throw 'Menu prompt is missing.' }
+    if ($menuChoices.Count -eq 0) { throw 'Unexpected menu prompt.' }
+    return $menuChoices.Dequeue()
+}
+try {
+    foreach ($choice in @('invalid', '3')) { $menuChoices.Enqueue($choice) }
+    & (Join-Path $project 'Install.ps1') -ConfigDirectory $menuTarget -Menu | Out-Null
+    Assert-Condition (Test-Path (Join-Path $menuTarget 'scripts/audio-panel.lua')) 'Menu Both lost audio'
+    Assert-Condition (Test-Path (Join-Path $menuTarget 'scripts/video-safety.lua')) 'Menu Both lost video'
+    $menuChoices.Enqueue('4')
+    & (Join-Path $project 'Install.ps1') -ConfigDirectory $menuTarget -Menu | Out-Null
+    Assert-Condition (-not (Test-Path (Join-Path $menuTarget 'mpv.conf'))) 'Menu restore failed'
+    $menuChoices.Enqueue('0')
+    & (Join-Path $project 'Install.ps1') -ConfigDirectory $menuTarget -Menu | Out-Null
+    Assert-Condition (-not (Test-Path (Join-Path $menuTarget 'mpv.conf'))) 'Menu cancel changed configuration'
+    foreach ($choice in @('1', '2')) {
+        $menuChoices.Enqueue($choice)
+        & (Join-Path $project 'Install.ps1') -ConfigDirectory $menuTarget -Menu | Out-Null
+        Assert-Condition ((Test-Path (Join-Path $menuTarget 'scripts/audio-panel.lua')) -eq ($choice -eq '1')) 'Menu audio selection failed'
+        Assert-Condition ((Test-Path (Join-Path $menuTarget 'scripts/video-safety.lua')) -eq ($choice -eq '2')) 'Menu video selection failed'
+    }
+    & (Join-Path $project 'Install.ps1') -ConfigDirectory $menuTarget -Menu -Mode Both | Out-Null
+    Assert-Condition ($menuChoices.Count -eq 0) 'Explicit mode unexpectedly prompted'
+} finally {
+    Remove-Item Function:\Read-Host
+}
+Write-Output 'Unified menu checks passed: all modes, restore, invalid input, cancel and explicit mode.'
+
 # Only this test-owned temporary directory is removed.
 if ([IO.Path]::GetFullPath($sandbox).StartsWith([IO.Path]::GetFullPath($testRoot) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
     Remove-Item -LiteralPath $sandbox -Recurse -Force

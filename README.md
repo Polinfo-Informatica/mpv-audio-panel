@@ -14,13 +14,13 @@ Video profiles are a separate, optional extra. Install them only when the system
 
 ## Choose an installation
 
-| Mode | Installer shortcut | Contents | Recommended for |
+| Mode | Option in `Install.cmd` | Contents | Recommended for |
 | --- | --- | --- | --- |
-| **Audio** | `Install-Audio.cmd` | Audio UI and audio playback policy | Most installations, including modest hardware |
-| **Video** | `Install-Video.cmd` | Capability-aware video profiles and video safety script | Systems suited to the intended video formats |
-| **Both** | `Install-Both.cmd` | Both independent components | Audio UI plus optional video configuration |
+| **Audio** | `1 - Audio` | Audio UI and audio playback policy | Most installations, including modest hardware |
+| **Video** | `2 - Video` | Capability-aware video profiles and video safety script | Systems suited to the intended video formats |
+| **Both** | `3 - Both` | Both independent components | Audio UI plus optional video configuration |
 
-`Install.cmd` and `Install.ps1` default to **Audio**. Audio mode installs no video profiles or video safety script, changes no video rendering settings, and adds no HDR processing. The interface itself has a small drawing cost; it does not make mpv's resource usage literally zero or identical to an unmodified build.
+`Install.cmd` is the single entry point: choose Audio, Video, Both, restore the latest backup, or exit without changes. Direct `Install.ps1` calls still default to **Audio** and support explicit `-Mode` for unattended use. Audio mode installs no video profiles or video safety script, changes no video rendering settings, and adds no HDR processing. The interface itself has a small drawing cost; it does not make mpv's resource usage literally zero or identical to an unmodified build.
 
 ## Audio features
 
@@ -48,7 +48,7 @@ Other operating systems are not supported or tested by this package. Manual adap
 
 1. Install mpv separately and close its running windows.
 2. Download this repository with **Code → Download ZIP** and extract it.
-3. Run the shortcut for the desired mode, or open PowerShell in the extracted folder:
+3. Double-click **`Install.cmd`** and choose **1** for Audio, **2** for Video or **3** for Both. Use **4** to restore the latest backup or **0** to exit without changes. For unattended use, open PowerShell in the extracted folder:
 
    ```powershell
    .\Install.ps1 -Mode Audio
@@ -142,6 +142,8 @@ Peak computation stays automatic so mpv can check shader support. After a startu
 See [Playback profiles](docs/profiles.md) for exact gates, precedence, performance behavior and limits.
 
 ## Restore or uninstall
+
+Open **`Install.cmd`** and select **4** to restore the latest backup. The same menu is used for installation and updates; no separate launcher is required.
 
 Close mpv and run:
 

@@ -1,16 +1,36 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 <#
 .SYNOPSIS
-Installs Audio, Video or Both components with a restorable backup.
+Installs Audio, Video or Both components; offers a unified installation/restore menu.
 #>
 [CmdletBinding()]
 param(
     [string]$ConfigDirectory = (Join-Path $env:APPDATA 'mpv'),
-    [ValidateSet('Audio', 'Video', 'Both')][string]$Mode = 'Audio'
+    [ValidateSet('Audio', 'Video', 'Both')][string]$Mode = 'Audio',
+    [switch]$Menu
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+# The launcher has one entry point; explicit modes remain usable without prompts.
+if ($Menu -and -not $PSBoundParameters.ContainsKey('Mode')) {
+    Write-Output 'MPV Audio Panel'
+    Write-Output '1 - Install or update Audio'
+    Write-Output '2 - Install or update Video'
+    Write-Output '3 - Install or update Both'
+    Write-Output '4 - Restore the latest backup'
+    Write-Output '0 - Exit without changes'
+    do {
+        $selection = Read-Host 'Select an option (0-4)'
+    } while ($selection -notin @('0', '1', '2', '3', '4'))
+    if ($selection -eq '0') { return }
+    if ($selection -eq '4') {
+        & (Join-Path $PSScriptRoot 'Restore.ps1') -ConfigDirectory $ConfigDirectory
+        return
+    }
+    $Mode = @{ '1' = 'Audio'; '2' = 'Video'; '3' = 'Both' }[$selection]
+}
 $root = [IO.Path]::GetFullPath($ConfigDirectory)
 $audio = @('scripts/audio-panel.lua', 'mpv-audio-panel/audio.conf')
 $video = @('scripts/video-safety.lua', 'mpv-audio-panel/video.conf')
@@ -87,4 +107,4 @@ try {
 }
 Write-Output "Installation complete: $Mode. Restart mpv."
 Write-Output "Backup: $backup"
-Write-Output "Restore with Restore.ps1 -ConfigDirectory <config-directory> -BackupName $(Split-Path $backup -Leaf)"
+Write-Output "Restore through Install.cmd, or Restore.ps1 -ConfigDirectory <config-directory> -BackupName $(Split-Path $backup -Leaf)"
