@@ -1,4 +1,7 @@
 {
-  "mpv.conf": "771651b1e41076bb3d111f8fafcf5191924389bc979aa26caf1d77a7adff7d7f",
-  "scripts/audio-panel.lua": "7ec6675cd6636bb9eea5e98077cc895b9d3fa5b59f631e464f951e62d5ca2cb7"
+  "mpv.conf": "7a71b053265fb5950755070540db2c58535c5c01d16df3d16b3e7af5de6b9ac7",
+  "scripts/audio-panel.lua": "7ec6675cd6636bb9eea5e98077cc895b9d3fa5b59f631e464f951e62d5ca2cb7",
+  "scripts/video-safety.lua": "00ce1123fa881e9e1b07fd1d3fdd1943edfa84e099a0710724a7631974e4ecd2",
+  "mpv-audio-panel/audio.conf": "25ef9b8ba7595837cca207ca68dd70a55d613ea4b5e8a887c11292d0e99a3fc0",
+  "mpv-audio-panel/video.conf": "328d28fad8ed5161a5ffc5f7a94458e40855abf460ef8e04585c0c34f502dcfd"
 }

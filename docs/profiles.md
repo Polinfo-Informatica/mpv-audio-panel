@@ -1,34 +1,58 @@
-# Playback profiles
+# Optional video profiles
 
-`[default]` includes only `MPV_COMMON`. The common profile defines shared title, playlist, subtitle, window and resume preferences. No global fullscreen override is needed.
+This package targets Windows and is tested on Windows 11. The project's main feature is the dark, minimalist, monochrome audio interface. Video profiles are an independent extra for systems capable of handling the intended content. Audio mode installs no video profiles or video safety script and adds no video rendering work.
 
-| Profile | Applied when | Purpose |
+## Components and activation
+
+`mpv.conf` contains only the selected component includes. Audio preferences live in `mpv-audio-panel/audio.conf`; video preferences live in `mpv-audio-panel/video.conf`. Outside their playback mode, profiles restore unchanged values with `profile-restore=copy-equal`.
+
+The audio script manages `AUTO_MUSIC` across genuine mode changes. `AUDIO_PLAYBACK` is applied through file-local options, so audio resume settings do not become video settings. Audio-only installation leaves video defaults or unrelated pre-existing configuration in control.
+
+The video safety script publishes boolean decisions under `user-data/video-safety`. It inspects actual decoded/filter-output parameters and the active output, rather than file names, GPU brands or advertised format labels. Without this script, the optional video profiles remain inactive.
+
+| Profile | Required evidence | Behavior |
 | --- | --- | --- |
-| `MPV_COMMON` | Configuration startup | Shared preferences; video position saving enabled |
-| `AUTO_MUSIC` | Lua confirms audio without real video | Custom panel, windowed playback, native resizing, no color-space hint |
-| `AUDIO_PLAYBACK` | Each audio file loads | File-local start/resume/save policy |
-| `HDR_OFF` | Real SDR video, excluding selected Dolby Vision profiles | Neutral SDR targets and fullscreen |
-| `HDR_ON` | Real PQ or HLG video | Automatic display targets and HDR gamut settings |
-| `auto-hdr-generic` | PQ/HLG without scene maxima or selected Dolby Vision profiles | Enable peak computation |
-| `auto-dolby-vision-rpu` | Dolby Vision profile 5, 8 or 9 | Disable peak computation |
-| `auto-hdr10plus` | Real video exposes nonzero scene maxima | ST 2094-40 tone mapping; disable peak computation |
-| `VIDEO_FALLBACK` | Any real video, including silent video | Base video window/fullscreen/controller behavior |
-| `protocol.http`, `protocol.https`, `protocol.ytdl` | Matching protocol | Shared stream cache and HLS preferences |
+| `VIDEO_FALLBACK` | Selected real video and valid decoded dimensions | Base window/fullscreen behavior; automatic targets; no forced GPU or decoder |
+| `HDR_OFF` | Configured `gpu`/`gpu-next`, a known target and SDR filter output | Automatic SDR processing |
+| `HDR_ON` | HDR filter output, configured `gpu-next`, reporting context, automatic strict target negotiation and PQ/HLG/scRGB target | Identifies confirmed HDR rendering output; does not force it |
+| `HDR_TONEMAP` | HDR filter output on `gpu`/`gpu-next`, HDR output not confirmed | Automatic compatibility conversion |
+| `auto-hdr-generic` | Supported renderer, HDR signal, no active specialized metadata path and no low-power reduction | Automatic peak computation, never forced on |
+| `HDR10PLUS_TONEMAP` | `gpu-next`, PQ signal, actual target and complete finite scene maxima in range | Internal ST 2094-40 tone mapping; no native HDR10+ output claim |
+| `DOLBY_VISION_TONEMAP` | `gpu-next`, actual target and decoded `dolbyvision` color representation | Internal processing with automatic tone mapping and peak policy |
+| `VIDEO_LOW_POWER` | Sustained playback frame drops after a grace period | Disable optional peak computation, contrast recovery, debanding and interpolation for the track |
 
-“Real video” excludes still-image and album-art tracks. Scene maxima are the observable condition used for the HDR10+ overlay; this is not a complete metadata validator. Dolby Vision profile selection does not by itself guarantee decoding or output support.
+Still images and album art never activate video profiles. Undecoded or failed streams do not qualify as real video. Unsupported renderers receive only the base window behavior; no specialized color-processing profile is selected.
 
-## Lifecycle and precedence
+## Output capability checks
 
-The script applies `AUTO_MUSIC` only when switching into audio mode, and restores it when switching out. It remains active across consecutive audio files. Unknown extensions retain the previous mode until `on_preloaded` can inspect the track list; this prevents a temporary fullscreen change during ambiguous audio loads.
+Confirmed HDR requires `target-colorspace-hint=auto`, `target-colorspace-hint-mode=target`, strict negotiated-output handling and an HDR transfer function in `video-target-params`. The reporting contexts currently recognized are D3D11, Windows Vulkan and Wayland OpenGL/Vulkan. An unknown context is not treated as proof of HDR support; it remains on the compatibility path without blocking playback.
 
-`AUDIO_PLAYBACK` is read from mpv's profile list and applied through `file-local-options`. These options reset for the next file, allowing video resume to remain enabled. Do not add a `profile-cond` to the manually managed music profile.
+Target primaries, transfer, peak brightness, gamut and contrast remain automatic. No GPU model, codec whitelist, fixed luminance, forced decoder or synthetic hardware benchmark is used. Software decoding remains valid when it can keep up. Moving the window or changing the output causes the decision to be reevaluated.
 
-Automatic profiles use `profile-restore=copy-equal`, restoring only values still equal to their applied values. `VIDEO_FALLBACK` is deliberately declared **after** the HDR profiles: on the tested build, this makes the broad video base evaluate before the specialized overlays. Reordering can cause restoration from one profile to overwrite another profile's fullscreen state. Keep this order and rerun the runtime suite after profile changes.
+These checks describe what mpv actually negotiates, not a physical certification of the entire display chain. A driver can report incorrect capabilities. Native HDR10+/Dolby Vision signaling is not guaranteed or enabled by these profiles, and OS HDR is never toggled by the package.
 
-Command-line options, other scripts and separately loaded configuration can affect the result. Test custom combinations explicitly.
+## Dynamic metadata and compatibility
 
-## Rendering scope
+HDR10+ scene maxima must include all RGB components, be finite, lie between 0 and 10000 nits and contain at least one positive value. Once observed, support is retained for black scenes in the same file/track; a new file or selected track clears that evidence. The renderer's documented ST 2094-40 fallback handles missing per-scene metadata. A Dolby Vision representation takes precedence over HDR10+ classification.
 
-Targets such as transfer function, primaries, peak luminance and contrast stay automatic. The HDR profile does not encode a particular display's brightness, gamut or contrast. The panel disables color-space hints during audio playback so album art does not request an output color-space change.
+Container Dolby Vision profile numbers alone are insufficient: a tag does not establish that RPU data reached the renderer. The decoded color representation supplies stronger evidence. This does not validate every Dolby Vision enhancement-layer path or guarantee decoder compatibility; unsupported streams still need an appropriate decoder/build.
 
-The runtime suite checks SDR, unknown-extension video, PQ, HLG and audio transitions with null audio/video outputs. Physical fullscreen, Windows Snap, actual HDR output and metadata-specific Dolby Vision/HDR10+ playback require manual verification with suitable hardware and media.
+Internal metadata-based tone mapping can validly target SDR or HDR10. Requiring an HDR10+-certified display for SDR conversion would reject working systems unnecessarily. Conversely, an HDR source alone never qualifies as confirmed HDR output.
+
+## Performance behavior
+
+Optional contrast recovery is disabled and histogram percentile refinement is not added by default. Peak detection uses mpv's `auto` capability checks. Rendering and decoder drop counters are sampled once per second. Reduction requires three consecutive qualifying intervals with at least three drops and roughly 10% of the nominal frame rate lost per interval.
+
+Startup, seeking, cache pauses, paused playback, position jumps and altered playback speed receive exclusions or a new grace period. Low-power reduction is latched for the current track to avoid oscillation and resets with the file/selected track. It does not change resolution, output transfer function, OS HDR or the audio UI. It cannot guarantee smooth playback on hardware unable to decode the source.
+
+## Precedence and manual verification
+
+Keep `VIDEO_FALLBACK` last among the conditional video profiles: on the tested mpv build, the broad base is evaluated before the specialized overlays. Keep `VIDEO_LOW_POWER` first so its reduction is applied last. Other configuration, scripts and command-line options can change the result; test custom combinations explicitly.
+
+The automated suite covers simulated supported, unsupported and incomplete capability reports; valid/malformed metadata; cover exclusion; sustained drops; and 24 real-mpv audio/video transitions across the three modes. Null outputs and synthetic PQ/HLG media cannot verify a real monitor, GPU driver, Dolby Vision enhancement layer or physical HDR signal. Verify those manually with suitable hardware and media.
+
+## Upstream references
+
+- [mpv properties](https://mpv.io/manual/master/#properties): `video-out-params`, `video-target-params`, `current-vo`, `current-gpu-context`, frame-drop counters.
+- [mpv video options](https://mpv.io/manual/master/#video): automatic peak computation, tone mapping and negotiated color-space hints.
+- [Upstream format-detection guidance](https://github.com/mpv-player/mpv/discussions/14024): decoded Dolby Vision representation and HDR10+ scene maxima.

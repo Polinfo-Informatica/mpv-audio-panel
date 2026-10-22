@@ -22,7 +22,10 @@ if (-not $BackupName) {
 $backup = Join-Path $backupRoot $BackupName
 $manifest = Get-Content -LiteralPath (Join-Path $backup 'manifest.json') -Raw | ConvertFrom-Json
 $expected = @('mpv.conf', 'scripts/audio-panel.lua')
-if ($manifest.Version -ne 1 -or @($manifest.Files).Count -ne 2) { throw 'Invalid backup manifest.' }
+if ($manifest.Version -eq 2) {
+    $expected += @('mpv-audio-panel/audio.conf', 'scripts/video-safety.lua', 'mpv-audio-panel/video.conf')
+} elseif ($manifest.Version -ne 1) { throw 'Invalid backup version.' }
+if (@($manifest.Files).Count -ne $expected.Count) { throw 'Invalid backup manifest.' }
 foreach ($relative in $expected) {
     $record = @($manifest.Files | Where-Object Path -EQ $relative)
     if ($record.Count -ne 1 -or $record[0].Existed -isnot [bool]) { throw 'Invalid backup entry.' }

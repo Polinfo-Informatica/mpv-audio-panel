@@ -1,15 +1,23 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 <#
 .SYNOPSIS
-Installs the configuration with a restorable backup of both managed files.
+Installs Audio, Video or Both components with a restorable backup.
 #>
 [CmdletBinding()]
-param([string]$ConfigDirectory = (Join-Path $env:APPDATA 'mpv'))
+param(
+    [string]$ConfigDirectory = (Join-Path $env:APPDATA 'mpv'),
+    [ValidateSet('Audio', 'Video', 'Both')][string]$Mode = 'Audio'
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = [IO.Path]::GetFullPath($ConfigDirectory)
-$files = @('mpv.conf', 'scripts/audio-panel.lua')
+$audio = @('scripts/audio-panel.lua', 'mpv-audio-panel/audio.conf')
+$video = @('scripts/video-safety.lua', 'mpv-audio-panel/video.conf')
+$files = @('mpv.conf') + $audio + $video
+$selected = @()
+if ($Mode -ne 'Video') { $selected += $audio }
+if ($Mode -ne 'Audio') { $selected += $video }
 $checksums = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'checksums.json') -Raw | ConvertFrom-Json
 
 # Validate every source before changing the destination.
@@ -18,7 +26,31 @@ foreach ($relative in $files) {
     if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ne $checksums.$relative) {
         throw "Source checksum mismatch: $relative"
     }
+    $target = Join-Path $root $relative
+    if ((Test-Path -LiteralPath $target) -and -not (Test-Path -LiteralPath $target -PathType Leaf)) {
+        throw "A directory occupies a managed file path: $relative"
+    }
 }
+$config = Join-Path $root 'mpv.conf'
+$existing = ''
+if (Test-Path -LiteralPath $config) {
+    # Migrate the original published complete configuration; the backup retains it.
+    $legacyHash = '771651b1e41076bb3d111f8fafcf5191924389bc979aa26caf1d77a7adff7d7f'
+    if ((Get-FileHash -LiteralPath $config).Hash -ne $legacyHash) {
+        $existing = [IO.File]::ReadAllText($config)
+    }
+}
+$pattern = '(?ms)^# BEGIN MPV AUDIO PANEL\r?\n.*?^# END MPV AUDIO PANEL(?:\r?\n|$)'
+$existing = [regex]::Replace($existing, $pattern, '')
+if ($existing -match '# (BEGIN|END) MPV AUDIO PANEL') { throw 'Incomplete managed configuration block. Restore or repair it first.' }
+if ($existing -match '(?m)^\[(AUTO_MUSIC|AUDIO_PLAYBACK|HDR_ON|HDR_OFF|VIDEO_FALLBACK)\]\s*$') {
+    throw 'Unmanaged package profiles were found. Back up and merge the configuration manually before installation.'
+}
+$loader = "# BEGIN MPV AUDIO PANEL`n[default]`n"
+if ($Mode -ne 'Video') { $loader += "include=~~/mpv-audio-panel/audio.conf`n[default]`n" }
+if ($Mode -ne 'Audio') { $loader += "include=~~/mpv-audio-panel/video.conf`n[default]`n" }
+$loader += "# END MPV AUDIO PANEL`n"
+$content = if ($existing.Length) { $existing.TrimEnd() + "`n`n" + $loader } else { $loader }
 $backup = Join-Path (Join-Path $root 'mpv-audio-panel-backups') ([guid]::NewGuid().ToString('N'))
 $null = New-Item -ItemType Directory -Path $backup -Force
 $records = @()
@@ -36,18 +68,23 @@ foreach ($relative in $files) {
     }
     $records += [pscustomobject]@{ Path = $relative; Existed = $exists; Hash = $hash }
 }
-$manifest = [pscustomobject]@{ Version = 1; Created = [DateTime]::UtcNow.ToString('o'); Files = $records }
+$manifest = [pscustomobject]@{ Version = 2; Mode = $Mode; Created = [DateTime]::UtcNow.ToString('o'); Files = $records }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $backup 'manifest.json') -Encoding UTF8
 try {
-    foreach ($relative in $files) {
+    foreach ($relative in $audio + $video) {
         $target = Join-Path $root $relative
-        $null = New-Item -ItemType Directory -Path (Split-Path $target) -Force
-        Copy-Item -LiteralPath (Join-Path (Join-Path $PSScriptRoot 'config') $relative) -Destination $target -Force
+        if ($selected -contains $relative) {
+            $null = New-Item -ItemType Directory -Path (Split-Path $target) -Force
+            Copy-Item -LiteralPath (Join-Path (Join-Path $PSScriptRoot 'config') $relative) -Destination $target -Force
+        } elseif (Test-Path -LiteralPath $target -PathType Leaf) {
+            Remove-Item -LiteralPath $target
+        }
     }
+    [IO.File]::WriteAllText($config, $content, [Text.UTF8Encoding]::new($false))
 } catch {
     & (Join-Path $PSScriptRoot 'Restore.ps1') -ConfigDirectory $root -BackupName (Split-Path $backup -Leaf)
     throw
 }
-Write-Output 'Installation complete. Restart mpv.'
+Write-Output "Installation complete: $Mode. Restart mpv."
 Write-Output "Backup: $backup"
 Write-Output "Restore with Restore.ps1 -ConfigDirectory <config-directory> -BackupName $(Split-Path $backup -Leaf)"
