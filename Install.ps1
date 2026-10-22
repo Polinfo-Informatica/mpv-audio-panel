@@ -22,7 +22,12 @@ if ($Menu -and -not $PSBoundParameters.ContainsKey('Mode')) {
     Write-Output '4 - Restore the latest backup'
     Write-Output '0 - Exit without changes'
     do {
-        $selection = Read-Host 'Select an option (0-4)'
+        if ([Console]::IsInputRedirected) {
+            $selection = [Console]::ReadLine()
+            if ($null -eq $selection) { throw 'No menu selection was provided.' }
+        } else {
+            $selection = Read-Host 'Select an option (0-4)'
+        }
     } while ($selection -notin @('0', '1', '2', '3', '4'))
     if ($selection -eq '0') { return }
     if ($selection -eq '4') {
