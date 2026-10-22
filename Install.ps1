@@ -7,7 +7,8 @@ Installs Audio, Video or Both components; offers a unified installation/restore 
 param(
     [string]$ConfigDirectory = (Join-Path $env:APPDATA 'mpv'),
     [ValidateSet('Audio', 'Video', 'Both')][string]$Mode = 'Audio',
-    [switch]$Menu
+    [switch]$Menu,
+    [Parameter(DontShow)][scriptblock]$MenuReader = { Read-Host 'Select an option (0-4)' }
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,12 +23,8 @@ if ($Menu -and -not $PSBoundParameters.ContainsKey('Mode')) {
     Write-Output '4 - Restore the latest backup'
     Write-Output '0 - Exit without changes'
     do {
-        if ([Console]::IsInputRedirected) {
-            $selection = [Console]::ReadLine()
-            if ($null -eq $selection) { throw 'No menu selection was provided.' }
-        } else {
-            $selection = Read-Host 'Select an option (0-4)'
-        }
+        $selection = & $MenuReader
+        if ($null -eq $selection) { throw 'No menu selection was provided.' }
     } while ($selection -notin @('0', '1', '2', '3', '4'))
     if ($selection -eq '0') { return }
     if ($selection -eq '4') {

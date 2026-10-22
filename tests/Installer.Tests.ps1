@@ -86,52 +86,31 @@ $record | ConvertTo-Json -Depth 4 | Set-Content $legacyManifest -Encoding UTF8
 Assert-Condition (-not (Test-Path (Join-Path $legacy 'mpv.conf'))) 'Legacy backup restore failed'
 Write-Output 'Component checks passed: Audio, Video, Both, mode switching, config preservation and legacy backups.'
 
-# Exercise the actual menu in a child process rather than overriding native cmdlets.
-function Invoke-InstallerMenu {
-    param([string[]]$Choices, [string]$Target, [string]$ExplicitMode)
-    $start = [Diagnostics.ProcessStartInfo]::new()
-    $start.FileName = (Get-Process -Id $PID).Path
-    $suffix = if ($ExplicitMode) { '-Mode ' + $ExplicitMode } else { '' }
-    $start.Arguments = '-NoProfile -File "{0}" -ConfigDirectory "{1}" -Menu {2}' -f (Join-Path $project 'Install.ps1'), $Target, $suffix
-    $start.UseShellExecute = $false
-    $start.CreateNoWindow = $true
-    $start.RedirectStandardInput = $true
-    $start.RedirectStandardOutput = $true
-    $start.RedirectStandardError = $true
-    $process = [Diagnostics.Process]::new()
-    $process.StartInfo = $start
-    try {
-        $null = $process.Start()
-        $outputTask = $process.StandardOutput.ReadToEndAsync()
-        $errorTask = $process.StandardError.ReadToEndAsync()
-        foreach ($choice in $Choices) { $process.StandardInput.WriteLine($choice) }
-        $process.StandardInput.Close()
-        if (-not $process.WaitForExit(15000)) {
-            $process.Kill()
-            throw 'Installer menu timed out.'
-        }
-        $process.WaitForExit()
-        if ($process.ExitCode -ne 0) { throw ($outputTask.Result + $errorTask.Result) }
-    } finally {
-        $process.Dispose()
-    }
-}
+# Inject menu input without replacing native cmdlets or relying on console redirection.
 $menuTarget = Join-Path $sandbox 'menu'
-Invoke-InstallerMenu -Choices @('invalid', '3') -Target $menuTarget
+$menuChoices = [Collections.Generic.Queue[string]]::new()
+$readMenu = {
+    if ($menuChoices.Count -eq 0) { throw 'Unexpected menu prompt.' }
+    $menuChoices.Dequeue()
+}.GetNewClosure()
+foreach ($choice in @('invalid', '3')) { $menuChoices.Enqueue($choice) }
+& (Join-Path $project 'Install.ps1') -ConfigDirectory $menuTarget -Menu -MenuReader $readMenu | Out-Null
 Assert-Condition (Test-Path (Join-Path $menuTarget 'scripts/audio-panel.lua')) 'Menu Both lost audio'
 Assert-Condition (Test-Path (Join-Path $menuTarget 'scripts/video-safety.lua')) 'Menu Both lost video'
-Invoke-InstallerMenu -Choices @('4') -Target $menuTarget
+$menuChoices.Enqueue('4')
+& (Join-Path $project 'Install.ps1') -ConfigDirectory $menuTarget -Menu -MenuReader $readMenu | Out-Null
 Assert-Condition (-not (Test-Path (Join-Path $menuTarget 'mpv.conf'))) 'Menu restore failed'
-Invoke-InstallerMenu -Choices @('0') -Target $menuTarget
+$menuChoices.Enqueue('0')
+& (Join-Path $project 'Install.ps1') -ConfigDirectory $menuTarget -Menu -MenuReader $readMenu | Out-Null
 Assert-Condition (-not (Test-Path (Join-Path $menuTarget 'mpv.conf'))) 'Menu cancel changed configuration'
 foreach ($choice in @('1', '2')) {
-    Invoke-InstallerMenu -Choices @($choice) -Target $menuTarget
+    $menuChoices.Enqueue($choice)
+    & (Join-Path $project 'Install.ps1') -ConfigDirectory $menuTarget -Menu -MenuReader $readMenu | Out-Null
     Assert-Condition ((Test-Path (Join-Path $menuTarget 'scripts/audio-panel.lua')) -eq ($choice -eq '1')) 'Menu audio selection failed'
     Assert-Condition ((Test-Path (Join-Path $menuTarget 'scripts/video-safety.lua')) -eq ($choice -eq '2')) 'Menu video selection failed'
 }
-Invoke-InstallerMenu -Choices @() -Target $menuTarget -ExplicitMode Both
-Assert-Condition (Test-Path (Join-Path $menuTarget 'scripts/audio-panel.lua')) 'Explicit mode lost audio'
-Assert-Condition (Test-Path (Join-Path $menuTarget 'scripts/video-safety.lua')) 'Explicit mode lost video'
+& (Join-Path $project 'Install.ps1') -ConfigDirectory $menuTarget -Menu -Mode Both -MenuReader $readMenu | Out-Null
+Assert-Condition ($menuChoices.Count -eq 0) 'Explicit mode unexpectedly prompted'
 Write-Output 'Unified menu checks passed: all modes, restore, invalid input, cancel and explicit mode.'
 
 # Only this test-owned temporary directory is removed.
