@@ -55,7 +55,7 @@ def main():
             config = root / mode
             (config / "scripts").mkdir(parents=True)
             (config / "mpv-audio-panel").mkdir()
-            loader = "[default]\n"
+            loader = "[default]\naudio-exclusive=yes\n"
             for component, script in (("audio", "audio-panel.lua"), ("video", "video-safety.lua")):
                 if mode == "Both" or mode.lower() == component:
                     shutil.copyfile(project / "config/scripts" / script, config / "scripts" / script)

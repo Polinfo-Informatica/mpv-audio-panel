@@ -6,7 +6,7 @@ This package targets Windows and is tested on Windows 11. The project's main fea
 
 `mpv.conf` contains only the selected component includes. Audio preferences live in `mpv-audio-panel/audio.conf`; video preferences live in `mpv-audio-panel/video.conf`. Outside their playback mode, profiles restore unchanged values with `profile-restore=copy-equal`.
 
-The audio script manages `AUTO_MUSIC` across genuine mode changes. `AUDIO_PLAYBACK` is applied through file-local options, so audio resume settings do not become video settings. Audio-only installation leaves video defaults or unrelated pre-existing configuration in control.
+The audio script manages `AUTO_MUSIC` across genuine mode changes. `AUDIO_PLAYBACK` is applied through file-local options, so audio resume settings do not become video settings. Music playback disables exclusive audio output, allowing other applications to share the device even when the existing base configuration enables exclusive mode. The previous exclusive-output setting is restored for video. Audio-only installation leaves video defaults or unrelated pre-existing configuration in control.
 
 The video safety script publishes boolean decisions under `user-data/video-safety`. It inspects actual decoded/filter-output parameters and the active output, rather than file names, GPU brands or advertised format labels. Without this script, the optional video profiles remain inactive.
 

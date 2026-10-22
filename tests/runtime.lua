@@ -6,6 +6,7 @@ local mode = os.getenv("MPV_TEST_MODE") or "Both"
 local audio_enabled, video_enabled = mode ~= "Video", mode ~= "Audio"
 local defaults = {
     fullscreen = mp.get_property_bool("fullscreen"),
+    exclusive = mp.get_property_bool("audio-exclusive"),
     resume = mp.get_property_bool("resume-playback"),
     save = mp.get_property_bool("save-position-on-quit"),
 }
@@ -54,6 +55,11 @@ mp.register_event("file-loaded", function()
         local expected_fullscreen = video_mode or defaults.fullscreen
         check(mp.get_property_bool("fullscreen") == expected_fullscreen, prefix .. "fullscreen")
         check(mp.get_property_bool("osc") == not panel, prefix .. "controller")
+        local expected_exclusive = not panel and defaults.exclusive
+        check(
+            mp.get_property_bool("audio-exclusive") == expected_exclusive,
+            prefix .. "exclusive audio"
+        )
         local expected_resume = not panel and defaults.resume
         local expected_save = video_mode or (not panel and defaults.save)
         check(mp.get_property_bool("resume-playback") == expected_resume, prefix .. "resume policy")
