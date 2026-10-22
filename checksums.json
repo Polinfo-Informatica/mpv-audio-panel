@@ -3,5 +3,5 @@
   "scripts/audio-panel.lua": "7ec6675cd6636bb9eea5e98077cc895b9d3fa5b59f631e464f951e62d5ca2cb7",
   "scripts/video-safety.lua": "00ce1123fa881e9e1b07fd1d3fdd1943edfa84e099a0710724a7631974e4ecd2",
   "mpv-audio-panel/audio.conf": "594a3758aa2480dd5cea3b18edc236236de56adc987c8710747ee5fa3b22b7f4",
-  "mpv-audio-panel/video.conf": "328d28fad8ed5161a5ffc5f7a94458e40855abf460ef8e04585c0c34f502dcfd"
+  "mpv-audio-panel/video.conf": "c05aaefdbb7fa7b6ed640fd232798da4e6a455a0c5ec7fcb3383001412548f79"
 }

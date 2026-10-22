@@ -12,14 +12,11 @@ The video safety script publishes boolean decisions under `user-data/video-safet
 
 | Profile | Required evidence | Behavior |
 | --- | --- | --- |
-| `VIDEO_FALLBACK` | Selected real video and valid decoded dimensions | Base window/fullscreen behavior; automatic targets; no forced GPU or decoder |
-| `HDR_OFF` | Configured `gpu`/`gpu-next`, a known target and SDR filter output | Automatic SDR processing |
-| `HDR_ON` | HDR filter output, configured `gpu-next`, reporting context, automatic strict target negotiation and PQ/HLG/scRGB target | Identifies confirmed HDR rendering output; does not force it |
-| `HDR_TONEMAP` | HDR filter output on `gpu`/`gpu-next`, HDR output not confirmed | Automatic compatibility conversion |
-| `auto-hdr-generic` | Supported renderer, HDR signal, no active specialized metadata path and no low-power reduction | Automatic peak computation, never forced on |
-| `HDR10PLUS_TONEMAP` | `gpu-next`, PQ signal, actual target and complete finite scene maxima in range | Internal ST 2094-40 tone mapping; no native HDR10+ output claim |
-| `DOLBY_VISION_TONEMAP` | `gpu-next`, actual target and decoded `dolbyvision` color representation | Internal processing with automatic tone mapping and peak policy |
+| `VIDEO_FALLBACK` | Selected real video and valid decoded dimensions | Shared video/window policy and automatic renderer targets, tone mapping and peak policy |
+| `HDR10PLUS_TONEMAP` | `gpu-next`, PQ signal, actual target and complete finite scene maxima in range | Override the base with internal ST 2094-40 tone mapping and disable peak computation |
 | `VIDEO_LOW_POWER` | Sustained playback frame drops after a grace period | Disable optional peak computation, contrast recovery, debanding and interpolation for the track |
+
+SDR, negotiated HDR, compatibility tone mapping, generic HDR and decoded Dolby Vision use the same automatic settings in the base. Separate profiles for these classifications added no option changes and have been removed. The safety script still exposes their classification flags for diagnostics and metadata/performance decisions. Native HDR and Dolby Vision processing remains the renderer's responsibility; no quality preset is implicitly selected.
 
 Still images and album art never activate video profiles. Undecoded or failed streams do not qualify as real video. Unsupported renderers receive only the base window behavior; no specialized color-processing profile is selected.
 
@@ -50,6 +47,30 @@ Startup, seeking, cache pauses, paused playback, position jumps and altered play
 Keep `VIDEO_FALLBACK` last among the conditional video profiles: on the tested mpv build, the broad base is evaluated before the specialized overlays. Keep `VIDEO_LOW_POWER` first so its reduction is applied last. Other configuration, scripts and command-line options can change the result; test custom combinations explicitly.
 
 The automated suite covers simulated supported, unsupported and incomplete capability reports; valid/malformed metadata; cover exclusion; sustained drops; and 24 real-mpv audio/video transitions across the three modes. Null outputs and synthetic PQ/HLG media cannot verify a real monitor, GPU driver, Dolby Vision enhancement layer or physical HDR signal. Verify those manually with suitable hardware and media.
+
+## Relationship to built-in mpv profiles
+
+Built-in profile definitions are available presets, not a chain that always runs. The package does not invoke the native presets below. Options with the same value as a native preset are not redundant unless that preset is guaranteed to have been applied. Normal compiled option defaults are a separate concept.
+
+| Native profile | Relationship to this package |
+| --- | --- |
+| `default` | Used to return include loaders to normal configuration scope; it does not reset all options to factory values |
+| `pseudo-gui` | May be selected by the launcher; the package cannot assume every invocation uses it |
+| `builtin-pseudo-gui` | Supplies pseudo-GUI defaults only where configuration/command-line options have not overridden them |
+| `high-quality` | Optional caller choice; the video base deliberately neutralizes its extra HDR contrast/histogram work while leaving its scaling choices alone |
+| `gpu-hq` | Compatibility alias of `high-quality`; same relationship |
+| `fast` | Optional caller choice; the video policy deliberately uses automatic peak computation unless HDR10+ or sustained drops require disabling it |
+| `low-latency` | Optional caller choice; most latency options remain untouched, while explicit component policy still applies |
+| `sw-fast` | Software-scaling preset; this package does not configure its scaler options |
+| `osd-box` | Native OSD styling; it does not draw or replace the custom audio overlay |
+| `sub-box` | Subtitle styling; no equivalent styling is configured by this package |
+| `box` | Combines the previous two native presets |
+| `encoding` | Encoding operation; not a prerequisite for this playback package |
+| `libmpv` | Embedded-player defaults; not a prerequisite for this standalone playback package |
+
+Retain explicit component options where they enforce behavior against a pre-existing configuration or restore mode boundaries. In particular, window/OSC flags, file-local resume and exclusive-audio policy, and automatic video targets are not removed merely because some match compiled defaults. Explicit `hls-bitrate=max` remains the streaming policy rather than an assumption about inherited configuration.
+
+The consolidation was checked against the previous configuration across ten simulated classification transitions for each of eight starting presets: `default`, `high-quality`, `fast`, `gpu-hq`, `low-latency`, `sw-fast`, `box` and `pseudo-gui`. All 80 snapshots matched for the 30 inspected video/window/playback options. This checks option state with null outputs, not physical GPU/display output.
 
 ## Upstream references
 
