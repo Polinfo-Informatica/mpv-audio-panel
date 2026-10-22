@@ -1,84 +1,110 @@
 # MPV Audio Panel
 
-A compact music interface for **mpv**, with a smooth playlist, precise playback controls and automatic video profiles.
+**A dark, minimalist, monochrome audio interface for mpv on Windows.**
+
+This package targets **Windows** and is tested on **Windows 11**. Its installers, native window controls and Snap integration are designed for Windows.
 
 ![MPV Audio Panel preview](docs/preview.png)
 
-**[Install](#installation) · [Controls](#controls) · [Profiles](docs/profiles.md) · [Restore](#restore-or-uninstall) · [Contributing](CONTRIBUTING.md)**
+**[Install](#installation) · [Controls](#controls) · [Optional video profiles](#optional-video-profiles) · [Restore](#restore-or-uninstall) · [Contributing](CONTRIBUTING.md)**
 
-## Features
+The audio interface is the focus of this project. It adds a compact, carefully aligned playlist and playback controls using mpv's built-in Lua and drawing modules. **Audio is the recommended default installation.**
 
-- Persistent audio panel with smooth scrolling and a clean, unnumbered playlist.
-- Current track title above the progress bar; centered timing and matching volume labels.
-- Vector speaker icons with sound waves or a mute cross, plus a subtle monochrome mpv logo.
-- Native Windows resizing and Snap support while keeping the custom header.
-- Current media title in the window and taskbar.
-- Audio starts from the beginning; video keeps mpv's resume behavior.
-- Video fullscreen lives in profiles, including a fallback for silent or unclassified video.
-- Separate SDR, PQ/HLG, Dolby Vision and HDR10+ profile conditions.
-- Installation with checksums, automatic backups and a restore command.
+Video profiles are a separate, optional extra. Install them only when the system can decode and render the intended content comfortably, especially high-resolution HDR material. They are not required for the audio interface.
 
-The Lua panel uses only mpv's built-in modules. No additional UI framework, font download or runtime service is required.
+## Choose an installation
+
+| Mode | Installer shortcut | Contents | Recommended for |
+| --- | --- | --- | --- |
+| **Audio** | `Install-Audio.cmd` | Audio UI and audio playback policy | Most installations, including modest hardware |
+| **Video** | `Install-Video.cmd` | Capability-aware video profiles and video safety script | Systems suited to the intended video formats |
+| **Both** | `Install-Both.cmd` | Both independent components | Audio UI plus optional video configuration |
+
+`Install.cmd` and `Install.ps1` default to **Audio**. Audio mode installs no video profiles or video safety script, changes no video rendering settings, and adds no HDR processing. The interface itself has a small drawing cost; it does not make mpv's resource usage literally zero or identical to an unmodified build.
+
+## Audio features
+
+- Dark, monochrome composition with a smooth, unnumbered playlist.
+- Current song title above the progress bar.
+- Carefully aligned playback timing, volume slider and percentage.
+- Fixed vector speaker icons: sound waves when unmuted, a cross when muted.
+- Subtle monochrome mpv logo between the controls.
+- Native Windows resizing and Snap support with a custom header.
+- Current media title in the window and taskbar during audio playback.
+- Audio starts from the beginning, with file-local resume and save settings.
+- Persistent audio mode between tracks, including audio with cover art.
+
+No additional UI framework, font download or runtime service is needed. The approved interface composition is identical in Audio and Both modes.
 
 ## Requirements
 
-- A recent [mpv](https://mpv.io/installation/) build. The package was tested on Windows 11 with **mpv 0.41.0-1205-g01e2533f3**.
+- A recent [mpv](https://mpv.io/installation/) build. Tested on Windows 11 with **mpv 0.41.0-1205-g01e2533f3**.
 - Windows PowerShell 5.1 or PowerShell 7 for the optional installer.
-- A build that supports `title-bar`, `auto-window-resize`, `autocreate-playlist`, `profile-restore=copy-equal` and the included color-management options. Older builds may reject these options; check `mpv --list-options`.
+- A build supporting the relevant options, including `title-bar`, `auto-window-resize`, `autocreate-playlist` and `profile-restore=copy-equal`. Video mode additionally needs the included color-management options and properties. Check `mpv --list-options` when using an older build.
 
-Windows is the tested platform. The Lua script can be installed manually elsewhere, but window decoration, dragging, font fallback and HDR behavior depend on the platform and build. Native Snap behavior also depends on Windows settings. The panel requests Segoe UI and uses mpv's normal font fallback when unavailable.
+Other operating systems are not supported or tested by this package. Manual adaptation is possible, but font fallback, window decoration, dragging and HDR behavior depend on the platform, OS settings, renderer and build. The panel requests Segoe UI and uses normal mpv font fallback when unavailable.
 
 ## Installation
 
-### Windows: complete configuration
-
-1. Install mpv separately and close all running mpv windows.
-2. Download this repository through **Code → Download ZIP**, then extract it.
-3. Open PowerShell in the extracted folder and run:
+1. Install mpv separately and close its running windows.
+2. Download this repository with **Code → Download ZIP** and extract it.
+3. Run the shortcut for the desired mode, or open PowerShell in the extracted folder:
 
    ```powershell
-   .\Install.ps1
+   .\Install.ps1 -Mode Audio
+   .\Install.ps1 -Mode Video
+   .\Install.ps1 -Mode Both
    ```
 
-   `Install.cmd` runs the same installer when local script execution is permitted.
+   Run **one** command for the desired installation. Without `-Mode`, Audio is selected.
 
-4. Open an audio file with mpv. The panel appears automatically. Videos use the video profiles.
+4. Restart mpv. Audio and Both show the panel automatically for audio files.
 
-The default destination is `%APPDATA%\mpv`. The installer **replaces `mpv.conf` and `scripts/audio-panel.lua`**, after backing up both. It preserves other files and scripts. Other controller scripts can still conflict with the panel; disable them separately if necessary. Administrator privileges are not needed for a normal per-user installation.
+The default target is `%APPDATA%\mpv`. Normal per-user installation needs no administrator privileges. If Windows marks downloaded scripts as blocked, inspect them and use the file Properties **Unblock** option. If local policy prevents script execution, use manual installation.
 
-If Windows marks the downloaded files as blocked, inspect them first and use the file Properties **Unblock** option. If local policy prevents PowerShell scripts, use the manual installation below.
+### Existing configurations and switching modes
 
-### Portable mpv
+The installer backs up five managed paths: `mpv.conf`, both project scripts and both component configuration files. It preserves unrelated files and configuration text, adding one marked include block to `mpv.conf`. **Switching modes removes the unselected project components from those reserved paths**, after backing them up. Other controller scripts can still conflict and must be disabled separately.
 
-If `portable_config` exists next to the mpv executable, mpv uses it instead of the usual per-user configuration. Point the installer at that directory:
+The original, unmodified complete configuration from the first public package is migrated automatically. An edited legacy configuration containing the old project profiles requires a manual merge, so its customizations are not silently discarded. Installer backups remain available for exact restoration.
+
+### Portable installation
+
+When `portable_config` exists next to mpv, that directory takes precedence over the usual per-user location. Pass the active configuration directory explicitly:
 
 ```powershell
-.\Install.ps1 -ConfigDirectory 'D:\Apps\mpv\portable_config'
+.\Install.ps1 -Mode Audio -ConfigDirectory 'D:\Apps\mpv\portable_config'
 ```
 
-Replace the example with the actual portable configuration directory. Install into the directory mpv actually loads; avoid keeping conflicting copies in multiple locations.
+Replace the example path with the actual destination. Use the same directory for updates, mode changes and restoration.
 
-### Manual installation and existing setups
+### Manual installation
 
-Back up the existing configuration first. Copy the **contents** of `config/` into the mpv configuration directory, preserving the `scripts/` subfolder:
+Back up the existing configuration first. Install only the selected component files, preserving their relative paths:
 
-```text
-mpv.conf
-scripts/
-    audio-panel.lua
+| Component | Files copied from `config/` |
+| --- | --- |
+| Audio | `scripts/audio-panel.lua`, `mpv-audio-panel/audio.conf` |
+| Video | `scripts/video-safety.lua`, `mpv-audio-panel/video.conf` |
+
+Add the matching include to `mpv.conf` under `[default]`:
+
+```ini
+[default]
+include=~~/mpv-audio-panel/audio.conf
+[default]
 ```
 
-Typical locations are `%APPDATA%\mpv` on Windows and `~/.config/mpv` on Linux. Refer to the [mpv manual](https://mpv.io/manual/master/#files) for platform-specific search paths.
+For Video, replace `audio.conf` with `video.conf`. For Both, include both files, placing `[default]` before and after each include. `config/mpv.conf` is a complete **Both** loader for reference; copying all of `config/` installs Both, not Audio alone.
 
-For an existing customized setup, merge the profiles and common settings from `config/mpv.conf`, then add `audio-panel.lua`. The panel requires the exact profile names `AUTO_MUSIC` and `AUDIO_PLAYBACK`. Keep `VIDEO_FALLBACK` after the HDR profiles, as explained in [Profiles](docs/profiles.md). Manual merges are not managed by the installer backup system.
+Typical configuration locations are `%APPDATA%\mpv` on Windows and `~/.config/mpv` on Linux. See the [mpv manual](https://mpv.io/manual/master/#files) for other platforms. When switching a manual installation, remove the unselected component's include and script as well as its component configuration. Manual changes are outside installer backup management.
 
 ## Controls
 
 | Area | Action |
 | --- | --- |
 | Playlist row | Play that entry |
-| Playlist wheel | Scroll the list |
-| Playlist scrollbar | Drag to scroll |
+| Playlist wheel / scrollbar | Scroll or drag through the list |
 | Previous / play / next | Change track or pause/resume |
 | Progress bar | Click or drag to seek |
 | Speaker | Toggle mute |
@@ -86,13 +112,11 @@ For an existing customized setup, merge the profiles and common settings from `c
 | Header | Drag the native window |
 | Header minimize / close | Minimize or quit mpv |
 
-Normal mpv keyboard bindings remain available. The panel overrides mouse bindings while audio mode is active. Double-clicking the audio panel does not toggle fullscreen.
+Normal mpv keyboard bindings remain available. The panel overrides mouse bindings only during audio mode. Double-clicking the panel does not toggle fullscreen. The starting size is 840 × 380; narrow windows may hide the logo or timing text to preserve usable controls.
 
-At narrow widths, timing text and the logo may be hidden to preserve usable controls. The intended starting size is 840 × 380.
+## Audio customization
 
-## Customization
-
-Create `script-opts/audio-panel.conf` in the mpv configuration directory:
+Create `script-opts/audio-panel.conf` in the active configuration directory:
 
 ```ini
 scale=1.0
@@ -101,53 +125,57 @@ row_height=34
 smoothness=18
 ```
 
-| Option | Purpose |
-| --- | --- |
-| `scale` | Overall interface scale; values below 0.5 are clamped |
-| `font_size` | Playlist, title and numeric label size |
-| `row_height` | Playlist row height; increase alongside larger text |
-| `smoothness` | Scroll interpolation speed; higher values settle faster |
+`scale` adjusts overall size, with a minimum of 0.5. `font_size` changes text and numeric labels. Increase `row_height` with larger text. Higher `smoothness` values make scrolling settle faster. The default settings preserve the intended composition.
 
-The global default only bootstraps `MPV_COMMON`. Playback differences live in profiles. Edit `AUDIO_PLAYBACK` to change audio resume policy, `AUTO_MUSIC` for the panel window and the video profiles for fullscreen or rendering preferences. See [Profiles](docs/profiles.md) for conditions and precedence.
+Audio preferences live in `mpv-audio-panel/audio.conf`. Keep the exact profile names `AUTO_MUSIC` and `AUDIO_PLAYBACK`: the panel manages their lifecycle and applies audio resume options per file. They do not set video rendering policy.
 
-Display targets, audio output and language selection use generic or system defaults. HDR profiles select rendering options; they do not enable Windows HDR, calibrate a display or guarantee passthrough on every system.
+## Optional video profiles
+
+**Video profiles are an extra, not a requirement for the audio UI.** Prefer Audio on hardware that struggles with the intended video, or when video configuration is already managed separately. Video settings cannot make an unsupported codec decodable or guarantee smooth playback of demanding content.
+
+The optional component checks the decoded signal, active renderer and negotiated output. It separates confirmed HDR output from compatible tone mapping, validates HDR10+ scene metadata, and checks decoded Dolby Vision color representation rather than trusting a container label alone. It does not force a GPU vendor, hardware decoder, display mode, PQ output or fixed display brightness.
+
+Peak computation stays automatic so mpv can check shader support. After a startup/seek grace period, sustained frame drops reduce optional processing for the rest of the track. A single dropped frame does not trigger degradation. This can reduce rendering work, but cannot solve an overloaded decoder, insufficient bandwidth or hardware limits.
+
+**HDR10+ and Dolby Vision metadata processing is not native HDR10+/Dolby Vision passthrough.** A compatible renderer can use metadata to convert to SDR or HDR10 without requiring those display certifications. mpv does not expose a complete certification of GPU, cable, OS, driver and monitor support; missing evidence keeps the configuration on its compatibility path. OS HDR remains under system control.
+
+See [Playback profiles](docs/profiles.md) for exact gates, precedence, performance behavior and limits.
 
 ## Restore or uninstall
 
-Close mpv and run from the extracted package:
+Close mpv and run:
 
 ```powershell
 .\Restore.ps1
 ```
 
-For portable installations, pass the same `-ConfigDirectory` used during installation. By default, restore selects the latest backup. To choose an earlier installation, use the backup folder name printed by the installer:
+Pass the same `-ConfigDirectory` for portable installations. The latest backup is selected by default. Choose a specific backup using the folder name printed during installation:
 
 ```powershell
 .\Restore.ps1 -ConfigDirectory 'D:\Apps\mpv\portable_config' -BackupName '<backup-folder-name>'
 ```
 
-Backups are retained under `mpv-audio-panel-backups/` in the target directory. Each backup contains a manifest and any original managed files. Restore verifies their hashes before applying them. Files absent before installation are removed; existing files are restored byte for byte. **Restoring replaces later edits to these two managed files.** Other files are preserved.
+Backups remain in `mpv-audio-panel-backups/` inside the target directory. Restore checks their hashes first, restores original files byte for byte and removes managed files that were previously absent. **Later edits to managed files are replaced by restoration.** Version 1 backups remain supported for the two paths they originally covered; use the new installation's backup to roll back all component changes.
 
-For manual rollback, copy backed-up `mpv.conf` and `scripts/audio-panel.lua` to their original locations. If the manifest says a file did not exist before installation, remove only that installed file. A manual installation can be undone by restoring the separately saved configuration and removing the added panel script.
+For manual rollback, restore each original file from the backup; when the manifest marks a file as originally absent, remove only that installed file. A manual installation can be undone by restoring the separately saved `mpv.conf` and removing the added component files.
 
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
-| Panel does not appear | Confirm the active config directory and both required profiles; run `mpv --log-file=mpv.log <audio-file>` and inspect script errors |
-| Unknown option error | Update mpv or adapt the unsupported option for the installed build |
-| Two controllers appear | Check for another OSC/controller script; the package disables only mpv's built-in OSC in audio mode |
-| Video does not enter fullscreen | Check profile order and conflicting configuration or command-line overrides |
-| Window flickers on track change | Test with this configuration alone; driver, display-mode and other script behavior can also affect transitions |
-| HDR looks incorrect | Confirm OS/display HDR settings and mpv renderer support; keep automatic targets until the display is calibrated |
-| Text clips after customization | Increase row height, reduce font size or restore the default scale and window size |
+| Panel missing | Confirm Audio/Both mode, active config directory and both audio files |
+| Unknown option | Update mpv or adapt the unsupported option for that build |
+| Two controllers | Disable other controller/OSC scripts; only the built-in OSC is managed automatically |
+| Video changes in Audio mode | Check pre-existing settings and other scripts; Audio installs no video profiles |
+| HDR profile stays inactive | Inspect renderer/context and negotiated output; an HDR file tag alone is insufficient |
+| Incorrect HDR colors | Confirm OS HDR, active display, renderer and calibration; no automatic chain certification is available |
+| Demanding video stutters | Prefer Audio-only configuration or lower-demand media; optional processing fallback cannot fix decoding limits |
+| Text clips | Restore default scale/window size or adjust text size and row height together |
 
-Audio with cover art stays in audio mode. Still images do not activate video fullscreen. File extensions are used only for an early positive audio match; actual tracks decide the final mode. The panel stays active between consecutive audio files to avoid unnecessary window-mode changes.
+For diagnostics, use `mpv --log-file=mpv.log <media-file>` and inspect errors. Do not publish logs without removing private paths and media information.
 
-## Validation and development
+## Development and license
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for reproducible check commands. CI runs StyLua, Selene, PSScriptAnalyzer, package integrity checks and installer/restore tests on Windows. The optional runtime suite uses a real mpv process and synthetic media to exercise audio/video transitions; FFmpeg adds PQ/HLG cases. It does not verify physical HDR output, Dolby Vision metadata or monitor behavior.
+[CONTRIBUTING.md](CONTRIBUTING.md) documents lint and regression commands. CI checks Lua, PowerShell, package integrity and all three installation modes. The optional real-mpv suite checks 24 transitions across Audio, Video and Both when FFmpeg is available, plus synthetic capability and performance decisions. It does not certify physical HDR output, hardware formats or display behavior.
 
-## License
-
-[GPL-2.0-or-later](LICENSE). Upstream artwork attribution is in [NOTICE](NOTICE). mpv itself is distributed separately under its upstream terms. This is an independent configuration package, not an official mpv release.
+[GPL-2.0-or-later](LICENSE). Upstream artwork attribution is in [NOTICE](NOTICE). mpv is distributed separately. This is an independent package, not an official mpv release.
