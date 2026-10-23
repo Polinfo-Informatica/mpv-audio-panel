@@ -11,7 +11,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 # Restoration validates backups with the same checksum helpers as installation.
-Import-Module Microsoft.PowerShell.Utility -ErrorAction Stop
+Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1') -ErrorAction Stop
 $root = [IO.Path]::GetFullPath($ConfigDirectory)
 $backupRoot = Join-Path $root 'mpv-audio-panel-backups'
 if (-not $BackupName) {

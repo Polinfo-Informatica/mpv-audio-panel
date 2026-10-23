@@ -14,7 +14,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 # Load checksum helpers explicitly for Windows PowerShell file launches.
-Import-Module Microsoft.PowerShell.Utility -ErrorAction Stop
+Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1') -ErrorAction Stop
 
 # The launcher has one entry point; explicit modes remain usable without prompts.
 if ($Menu -and -not $PSBoundParameters.ContainsKey('Mode')) {
