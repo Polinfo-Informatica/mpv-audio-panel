@@ -58,17 +58,35 @@ foreach ($relative in $files) {
 $config = Join-Path $root 'mpv.conf'
 $existing = ''
 if (Test-Path -LiteralPath $config) {
-    # Migrate the original published complete configuration; the backup retains it.
-    $legacyHash = '771651b1e41076bb3d111f8fafcf5191924389bc979aa26caf1d77a7adff7d7f'
-    if ((Get-FileHash -LiteralPath $config).Hash -ne $legacyHash) {
-        $existing = [IO.File]::ReadAllText($config)
-    }
+    $existing = [IO.File]::ReadAllText($config)
 }
 $pattern = '(?ms)^# BEGIN MPV AUDIO PANEL\r?\n.*?^# END MPV AUDIO PANEL(?:\r?\n|$)'
 $existing = [regex]::Replace($existing, $pattern, '')
 if ($existing -match '# (BEGIN|END) MPV AUDIO PANEL') { throw 'Incomplete managed configuration block. Restore or repair it first.' }
-if ($existing -match '(?m)^\[(AUTO_MUSIC|AUDIO_PLAYBACK|HDR_ON|HDR_OFF|VIDEO_FALLBACK)\]\s*$') {
-    throw 'Unmanaged package profiles were found. Back up and merge the configuration manually before installation.'
+
+# Replace only legacy project profiles; preserve global options and unrelated sections.
+# The complete original config is backed up below before any destination changes.
+$legacyProfiles = @(
+    'AUTO_MUSIC', 'AUDIO_PLAYBACK', 'HDR_OFF', 'HDR_ON', 'HDR_TONEMAP',
+    'auto-hdr-generic', 'auto-dolby-vision-rpu', 'auto-hdr10plus',
+    'DOLBY_VISION_TONEMAP', 'HDR10PLUS_TONEMAP', 'VIDEO_LOW_POWER', 'VIDEO_FALLBACK'
+)
+$migratedProfiles = [Collections.Generic.List[string]]::new()
+$headers = [regex]::Matches($existing, '(?m)^[ \t]*\[([^\]\r\n]+)\][ \t]*(?:#[^\r\n]*)?\r?$')
+if ($headers.Count) {
+    $preserved = [Text.StringBuilder]::new()
+    $null = $preserved.Append($existing.Substring(0, $headers[0].Index))
+    for ($index = 0; $index -lt $headers.Count; $index++) {
+        $name = $headers[$index].Groups[1].Value.Trim()
+        $start = $headers[$index].Index
+        $end = if ($index + 1 -lt $headers.Count) { $headers[$index + 1].Index } else { $existing.Length }
+        if ($legacyProfiles -ccontains $name) {
+            if (-not $migratedProfiles.Contains($name)) { $migratedProfiles.Add($name) }
+        } else {
+            $null = $preserved.Append($existing.Substring($start, $end - $start))
+        }
+    }
+    $existing = $preserved.ToString()
 }
 $loader = "# BEGIN MPV AUDIO PANEL`n[default]`n"
 if ($Mode -ne 'Video') { $loader += "include=~~/mpv-audio-panel/audio.conf`n[default]`n" }
@@ -92,7 +110,7 @@ foreach ($relative in $files) {
     }
     $records += [pscustomobject]@{ Path = $relative; Existed = $exists; Hash = $hash }
 }
-$manifest = [pscustomobject]@{ Version = 2; Mode = $Mode; Created = [DateTime]::UtcNow.ToString('o'); Files = $records }
+$manifest = [pscustomobject]@{ Version = 2; Mode = $Mode; Created = [DateTime]::UtcNow.ToString('o'); Files = $records; MigratedProfiles = $migratedProfiles.ToArray() }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $backup 'manifest.json') -Encoding UTF8
 try {
     foreach ($relative in $audio + $video) {
@@ -108,6 +126,9 @@ try {
 } catch {
     & (Join-Path $PSScriptRoot 'Restore.ps1') -ConfigDirectory $root -BackupName (Split-Path $backup -Leaf)
     throw
+}
+if ($migratedProfiles.Count) {
+    Write-Output ("Migrated legacy project profiles: " + ($migratedProfiles -join ', '))
 }
 Write-Output "Installation complete: $Mode. Restart mpv."
 Write-Output "Backup: $backup"

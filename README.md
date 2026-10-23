@@ -66,7 +66,7 @@ The default target is `%APPDATA%\mpv`. Normal per-user installation needs no adm
 
 The installer backs up five managed paths: `mpv.conf`, both project scripts and both component configuration files. It preserves unrelated files and configuration text, adding one marked include block to `mpv.conf`. **Switching modes removes the unselected project components from those reserved paths**, after backing them up. Other controller scripts can still conflict and must be disabled separately.
 
-The original, unmodified complete configuration from the first public package is migrated automatically. An edited legacy configuration containing the old project profiles requires a manual merge, so its customizations are not silently discarded. Installer backups remain available for exact restoration.
+Inline profiles from older versions of this project are migrated automatically, including edited configurations. The installer replaces only the known legacy project sections with the current selected components. Global preferences, shared profiles such as `KAOS_COMMON`, native-profile customizations and unrelated sections/scripts remain in place. Values inside the replaced project profiles follow the current package policy. A byte-exact backup of the original configuration and managed scripts is saved before replacement; the manifest records the migrated profile names. Repeating an installation does not duplicate the loader. Use menu option **4** to undo the latest installation, or `Restore.ps1 -BackupName <backup-folder-name>` to select an older one.
 
 ### Portable installation
 

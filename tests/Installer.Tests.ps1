@@ -126,6 +126,49 @@ Assert-Condition (Test-Path (Join-Path $launcherTarget 'scripts/video-safety.lua
 Assert-Condition (-not (Test-Path (Join-Path $launcherTarget 'mpv.conf'))) 'Launcher install did not restore'
 Write-Output 'CMD launcher checks passed: visible startup, Windows PowerShell installation and restore.'
 
+
+# Migrate old inline project profiles automatically, with an exact original backup.
+$legacyNames = @(
+    'AUTO_MUSIC', 'AUDIO_PLAYBACK', 'HDR_OFF', 'HDR_ON', 'HDR_TONEMAP',
+    'auto-hdr-generic', 'auto-dolby-vision-rpu', 'auto-hdr10plus',
+    'DOLBY_VISION_TONEMAP', 'HDR10PLUS_TONEMAP', 'VIDEO_LOW_POWER', 'VIDEO_FALLBACK'
+)
+foreach ($mode in @('Audio', 'Video', 'Both')) {
+    $migrationTarget = Join-Path $sandbox ('migration-' + $mode)
+    $null = New-Item -ItemType Directory -Path (Join-Path $migrationTarget 'scripts') -Force
+    $globalOptions = "# Personal preferences`r`nprofile=high-quality`r`nalang=por,en`r`nscreen=2`r`n"
+    $sharedProfile = "[KAOS_COMMON]`r`nvolume=41`r`n[default]`r`nprofile=KAOS_COMMON`r`n"
+    $personalProfile = "[AUTO_MUSIC_EXTRA]`r`nsub-scale=1.2`r`n[fast]`r`nscale=bilinear`r`n"
+    $oldConfig = $globalOptions + $sharedProfile
+    foreach ($name in $legacyNames) {
+        $oldConfig += "  [$name] # Legacy project profile`r`nfullscreen=yes`r`n"
+    }
+    $oldConfig += "[AUTO_MUSIC]`r`ngeometry=640x160`r`n" + $personalProfile
+    $migrationConfig = Join-Path $migrationTarget 'mpv.conf'
+    [IO.File]::WriteAllText($migrationConfig, $oldConfig, [Text.UTF8Encoding]::new($true))
+    [IO.File]::WriteAllText((Join-Path $migrationTarget 'scripts/audio-panel.lua'), 'old audio script')
+    [IO.File]::WriteAllText((Join-Path $migrationTarget 'scripts/unrelated.lua'), 'personal script')
+    $originalHash = (Get-FileHash -LiteralPath $migrationConfig).Hash
+    & (Join-Path $project 'Install.ps1') -ConfigDirectory $migrationTarget -Mode $mode | Out-Null
+    $migrated = [IO.File]::ReadAllText($migrationConfig)
+    foreach ($section in @($globalOptions, $sharedProfile, $personalProfile)) {
+        Assert-Condition ($migrated.Contains($section.TrimEnd())) "$mode migration lost unrelated preferences"
+    }
+    Assert-Condition (-not ($migrated -match '(?m)^[ \t]*\[(AUTO_MUSIC|HDR_ON|VIDEO_FALLBACK)\]')) "$mode retained inline project profiles"
+    Assert-Condition ((Get-Content (Join-Path $migrationTarget 'scripts/unrelated.lua') -Raw) -eq 'personal script') 'Migration changed a personal script'
+    $migrationBackup = Get-ChildItem (Join-Path $migrationTarget 'mpv-audio-panel-backups') -Directory | Select-Object -First 1
+    $migrationManifest = Get-Content (Join-Path $migrationBackup.FullName 'manifest.json') -Raw | ConvertFrom-Json
+    Assert-Condition (@($migrationManifest.MigratedProfiles).Count -eq $legacyNames.Count) 'Migration manifest omitted profiles'
+    Assert-Condition ((Get-FileHash (Join-Path $migrationBackup.FullName 'mpv.conf')).Hash -eq $originalHash) 'Migration backup is not byte-exact'
+    $migratedHash = (Get-FileHash -LiteralPath $migrationConfig).Hash
+    & (Join-Path $project 'Install.ps1') -ConfigDirectory $migrationTarget -Mode $mode | Out-Null
+    Assert-Condition ((Get-FileHash -LiteralPath $migrationConfig).Hash -eq $migratedHash) 'Repeated migration changed the managed configuration'
+    & (Join-Path $project 'Restore.ps1') -ConfigDirectory $migrationTarget -BackupName $migrationBackup.Name | Out-Null
+    Assert-Condition ((Get-FileHash -LiteralPath $migrationConfig).Hash -eq $originalHash) 'Migration restore changed the original bytes'
+    Assert-Condition ((Get-Content (Join-Path $migrationTarget 'scripts/audio-panel.lua') -Raw) -eq 'old audio script') 'Migration restore lost the old script'
+}
+Write-Output 'Migration checks passed: all modes, preferences, native profiles, duplicates, BOM/CRLF, idempotence and exact restore.'
+
 # Only this test-owned temporary directory is removed.
 if ([IO.Path]::GetFullPath($sandbox).StartsWith([IO.Path]::GetFullPath($testRoot) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
     Remove-Item -LiteralPath $sandbox -Recurse -Force
